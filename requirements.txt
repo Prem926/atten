@@ -1,0 +1,10 @@
+streamlit
+opencv-python
+numpy
+pandas
+SpeechRecognition
+Pillow
+openpyxl
+schedule
+dlib
+face_recognition
