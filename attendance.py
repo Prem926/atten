@@ -1,6 +1,6 @@
 import streamlit as st
 import cv2
-import numpy as npxx
+import numpy as np
 import sqlite3
 import os
 import face_recognition
@@ -105,14 +105,28 @@ def decode_image(image_blob):
 
 # Function to capture attendance
 def capture_attendance(name, shift, supervisor, image):
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    encoded_image = encode_image(image)
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO attendance (name, shift, supervisor, timestamp, image) VALUES (?, ?, ?, ?, ?)",
-                   (name, shift, supervisor, timestamp, encoded_image))
-    conn.commit()
-    conn.close()
+    # Convert the image to grayscale for face detection
+    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    
+    # Load the Haar cascade for face detection
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    
+    # Detect faces in the image
+    faces = face_cascade.detectMultiScale(gray_image, scaleFactor=1.1, minNeighbors=5)
+    
+    # Check if at least one face is detected
+    if len(faces) > 0:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        encoded_image = encode_image(image)
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO attendance (name, shift, supervisor, timestamp, image) VALUES (?, ?, ?, ?, ?)",
+                       (name, shift, supervisor, timestamp, encoded_image))
+        conn.commit()
+        conn.close()
+        return True  # Attendance recorded successfully
+    else:
+        return False  # No face detected
 
 # Function to generate report
 def generate_report():
@@ -765,12 +779,8 @@ def guard_interface():
             st.warning("Please fill all fields and capture photo")
         else:
             if st.button("Submit Attendance"):
-                image = cv2.imdecode(np.frombuffer(picture.getvalue(), np.uint8), 
-                                   cv2.IMREAD_COLOR)
-                # Face detection
-                face_locations = face_recognition.face_locations(image)
-                if face_locations:
-                    capture_attendance(name, shift, supervisor, image)
+                image = cv2.imdecode(np.frombuffer(picture.getvalue(), np.uint8), cv2.IMREAD_COLOR)
+                if capture_attendance(name, shift, supervisor, image):
                     st.success("Attendance recorded successfully!")
                     # Add to frequent laborers if not exists
                     add_frequent_laborer(name)
